@@ -228,6 +228,31 @@ function show(v){openF(false);cur=v;document.querySelectorAll('nav button').forE
 /* ---------- mapa ---------- */
 L.Popup.prototype.options.maxWidth=Math.min(300,innerWidth-60);L.Popup.prototype.options.autoPanPadding=L.point(12,70);
 const map=L.map('map').setView([36.13,-5.46],13);
+
+/* Enlace a un punto (informes): #lat,lon,n&t=titulo&d=descripcion&z=zona&u=ubicacion&r=radio_m
+   Centra el mapa, dibuja un anillo que late (y un circulo de incertidumbre si hay r) y abre una llamada con los datos. */
+let deepLayer=null;
+(function(){const st=document.createElement('style');st.textContent='.dl-pin{position:relative;width:40px;height:40px}.dl-pin span{position:absolute;inset:0;border-radius:50%;background:rgba(255,102,0,.4);animation:dlp 1.6s infinite}.dl-pin b{position:absolute;left:6px;top:6px;width:28px;height:28px;border-radius:50%;background:#D94F00;color:#fff;border:3px solid #fff;font:700 14px/22px sans-serif;text-align:center;box-shadow:0 1px 8px rgba(0,0,0,.6)}@keyframes dlp{0%{transform:scale(.5);opacity:.9}100%{transform:scale(1.9);opacity:0}}';document.head.appendChild(st)})();
+function applyDeepLink(){
+  const m=(location.hash||'').slice(1).match(/^(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)(?:,(\d+))?(?:&(.*))?$/);
+  if(!m)return;
+  const ll=[parseFloat(m[1]),parseFloat(m[2])],P=new URLSearchParams(m[4]||'');
+  const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  if(deepLayer)map.removeLayer(deepLayer);
+  deepLayer=L.layerGroup().addTo(map);
+  const r=parseFloat(P.get('r')||'0');
+  if(r>0)L.circle(ll,{radius:r,color:'#D94F00',weight:3,dashArray:'8 6',fillColor:'#FF6600',fillOpacity:.10}).addTo(deepLayer);
+  const mk=L.marker(ll,{icon:L.divIcon({className:'',html:'<div class="dl-pin"><span></span><b>'+(m[3]||'')+'</b></div>',iconSize:[40,40],iconAnchor:[20,20]}),zIndexOffset:10000}).addTo(deepLayer);
+  let pop='<div style="font:13px/1.35 sans-serif;max-width:250px"><b style="color:#D94F00">'+(m[3]?'Candidata '+esc(m[3]):'Punto')+(P.get('t')?' · '+esc(P.get('t')):'')+'</b>';
+  if(P.get('z'))pop+='<br><span style="background:#FFF1E6;border:1px solid #FF6600;border-radius:9px;padding:0 7px;font-size:12px">Zona '+esc(P.get('z'))+'</span>';
+  if(P.get('d'))pop+='<br>'+esc(P.get('d'));
+  if(P.get('u'))pop+='<br><i>'+esc(P.get('u'))+'</i>';
+  mk.bindPopup(pop+'</div>',{autoClose:false,closeOnClick:false,offset:[0,-16],maxWidth:260});
+  map.setView(ll,r>0?17:18);
+  setTimeout(()=>mk.openPopup(),250);
+}
+setTimeout(applyDeepLink,400);
+window.addEventListener('hashchange',applyDeepLink);
 const AT=' · Parcelas: Ayuntamiento de Algeciras / Catastro';
 const base=L.tileLayer('https://tms-ign-base.idee.es/1.0.0/IGNBaseTodo/{z}/{x}/{-y}.jpeg',{attribution:'© Instituto Geográfico Nacional de España'+AT,maxZoom:19,maxNativeZoom:19}).addTo(map);
 const sat=L.tileLayer('https://tms-pnoa-ma.idee.es/1.0.0/pnoa-ma/{z}/{x}/{-y}.jpeg',{attribution:'PNOA © Instituto Geográfico Nacional de España'+AT,maxZoom:19,maxNativeZoom:19});
